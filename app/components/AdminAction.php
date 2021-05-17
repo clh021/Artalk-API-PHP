@@ -4,21 +4,37 @@ namespace app\components;
 use app\ArtalkServer;
 use app\Utils;
 
+/**
+ * 管理员操作
+ */
 trait AdminAction
 {
+  /**
+   * Action: AdminCheck
+   * Desc  : 管理员权限检验
+   */
   public function actionAdminCheck()
   {
-    $nick = trim($_POST['nick'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    $nick = $this->getUserNick();
+    $email = $this->getUserEmail();
+    $password = $this->getUserPassword();
     if ($nick == '') return $this->error('昵称 不能为空');
     if ($email == '') return $this->error('邮箱 不能为空');
     if ($password == '') return $this->error('密码 不能为空');
 
-    if (!$this->isAdmin($nick, $email)) {
-      return $this->error('无需管理员权限');
+    if ($this->isNeedCaptcha()) {
+      $imgData = $this->refreshGetCaptcha(); // 生成新的验证码
+      return $this->error('需要验证码', ['need_captcha' => true, 'img_data' => $imgData]);
     }
+
+    $this->logAction(); // 记录一次 IP 操作
+
+    if (!$this->isAdmin($nick, $email)) {
+      return $this->error('非管理员无需进行身份认证');
+    }
+
     if ($this->checkAdminPassword($nick, $email, $password)) {
+      $this->actionLogMarkAdmin(); // 标记为管理员
       return $this->success('密码正确');
     } else {
       return $this->error('密码错误');
@@ -26,17 +42,32 @@ trait AdminAction
   }
 
   public function NeedAdmin () {
-    $nick = trim($_POST['nick'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    $nick = $this->getUserNick();
+    $email = $this->getUserEmail();
+    $password = $this->getUserPassword();
 
-    if (!$this->isAdmin($nick, $email) || !$this->checkAdminPassword($nick, $email, $password)) {
+    if ($this->isNeedCaptcha()) {
+      $imgData = $this->refreshGetCaptcha(); // 生成新的验证码
+      return $this->error('需要验证码', ['need_captcha' => true, 'img_data' => $imgData]); // 防止密码被暴力破解 (TODO: 密码错误逐渐提高限制)
+    }
+
+    $this->logAction(); // 记录一次 IP 操作
+
+    if (!$this->isAdmin($nick, $email)) {
+      $this->response($this->error('需要管理员身份', ['need_password' => true]));
+      exit();
+    }
+
+    if (!$this->checkAdminPassword($nick, $email, $password)) {
       $this->response($this->error('需要管理员身份', ['need_password' => true]));
       exit();
     }
   }
 
-  /** 评论折叠 */
+  /**
+   * Action: CommentCollapse
+   * Desc  : 评论折叠
+   */
   public function actionCommentCollapse()
   {
     $this->NeedAdmin();
@@ -61,7 +92,10 @@ trait AdminAction
     ]);
   }
 
-  /** 评论删除 */
+  /**
+   * Action: CommentDel
+   * Desc  : 评论删除
+   */
   public function actionCommentDel()
   {
     $this->NeedAdmin();
@@ -81,7 +115,7 @@ trait AdminAction
     try {
       $commentTable->where('id', '=', $id)->find()->delete();
       $delTotal++;
-    } catch (Exception $ex) {
+    } catch (\Exception $ex) {
       return $this->error('删除评论时出现错误'.$ex);
     }
 
@@ -96,7 +130,7 @@ trait AdminAction
         try {
           $commentTable->where('id', '=', $item->id)->find()->delete();
           $delTotal++;
-        } catch (Exception $ex) {}
+        } catch (\Exception $ex) {}
       }
     };
     $QueryAndDelChild($id);
@@ -106,7 +140,10 @@ trait AdminAction
     ]);
   }
 
-  /** 设置页面数据 */
+  /**
+   * Action: SetPage
+   * Desc  : 设置页面配置数据
+   */
   public function actionSetPage()
   {
     $this->NeedAdmin();

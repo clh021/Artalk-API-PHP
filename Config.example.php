@@ -8,12 +8,18 @@ return [
   ],
   // 管理员用户
   'admin_users' => [
-    ['nick' => 'admin', 'email' => 'admin@example.com', 'password' => '', 'badge_name' => '管理员', 'badge_color' => '#ffa928']
+    ['nick' => 'admin', 'email' => 'admin@example.com', 'password' => '', 'badge_name' => '管理员', 'badge_color' => '#FF6C00']
+  ],
+  // 评论审核
+  'moderation' => [
+    'pending_default' => false, // 发表新评论默认为 “待审状态”
   ],
   // 验证码
   'captcha' => [
-    'limit' => 3, // 评论次数（超过则需验证码；设置为 0 总是需要验证码）
-    'timeout' => 4*60, // 超时（x 秒内，提交超过 限制评论次数 则需要验证码）
+    'on' => true, // 总开关
+    // ↓↓ 在 {timeout} 秒内，若再次评论超过 {limit} 次则需要验证码
+    'timeout' => 4*60, // 超时：重置评论次数统计（单位：秒）
+    'limit' => 3, // 激活验证码的评论次数（设置为 0 总是需要验证码）
   ],
   // 邮件通知
   'email' => [
